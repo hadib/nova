@@ -31,13 +31,13 @@ from nova.scheduler import filters
 
 host_manager_opts = [
     cfg.MultiStrOpt('scheduler_available_filters',
-            default=['nova.scheduler.filters.standard_filters'],
-            help='Filter classes available to the scheduler which may '
+            default = ['nova.scheduler.filters.standard_filters'],
+            help = 'Filter classes available to the scheduler which may '
                     'be specified more than once.  An entry of '
                     '"nova.scheduler.filters.standard_filters" '
                     'maps to all filters included with nova.'),
     cfg.ListOpt('scheduler_default_filters',
-                default=[
+                default = [
                   'RetryFilter',
                   'AvailabilityZoneFilter',
                   'RamFilter',
@@ -45,7 +45,7 @@ host_manager_opts = [
                   'ComputeCapabilitiesFilter',
                   'ImagePropertiesFilter'
                   ],
-                help='Which filter class names to use for filtering hosts '
+                help = 'Which filter class names to use for filtering hosts '
                       'when not specified in the request.'),
     ]
 
@@ -57,7 +57,7 @@ LOG = logging.getLogger(__name__)
 
 class ReadOnlyDict(UserDict.IterableUserDict):
     """A read-only dict."""
-    def __init__(self, source=None):
+    def __init__(self, source = None):
         self.data = {}
         self.update(source)
 
@@ -76,7 +76,7 @@ class ReadOnlyDict(UserDict.IterableUserDict):
     def popitem(self):
         raise TypeError
 
-    def update(self, source=None):
+    def update(self, source = None):
         if source is None:
             return
         elif isinstance(source, UserDict.UserDict):
@@ -93,8 +93,8 @@ class HostState(object):
     previously used and lock down access.
     """
 
-    def __init__(self, host, topic, capabilities=None, service=None,
-                 nodename=None):
+    def __init__(self, host, topic, capabilities = None, service = None,
+                 nodename = None):
         self.host = host
         self.topic = topic
         self.nodename = nodename
@@ -143,7 +143,7 @@ class HostState(object):
 
         self.disk_mb_used = compute['local_gb_used'] * 1024
 
-        #NOTE(jogo) free_ram_mb can be negative
+        # NOTE(jogo) free_ram_mb can be negative
         self.free_ram_mb = compute['free_ram_mb']
         self.total_usable_ram_mb = all_ram_mb
         self.total_usable_disk_gb = compute['local_gb']
@@ -341,10 +341,10 @@ class HostManager(object):
                 bad_filters.append(filter_name)
         if bad_filters:
             msg = ", ".join(bad_filters)
-            raise exception.SchedulerHostFilterNotFound(filter_name=msg)
+            raise exception.SchedulerHostFilterNotFound(filter_name = msg)
         return good_filters
 
-    def filter_hosts(self, hosts, filter_properties, filters=None):
+    def filter_hosts(self, hosts, filter_properties, filters = None):
         """Filter hosts and return only ones passing all filters"""
         filtered_hosts = []
         LOG.debug(_("filter_prperties %(filter_properties)s") % locals())
@@ -370,7 +370,7 @@ class HostManager(object):
         service_caps[service_name] = capab_copy
         self.service_states[host] = service_caps
 
-    def get_all_host_states(self, context, topic, nodes=None):
+    def get_all_host_states(self, context, topic, nodes = None):
         """Returns a dict of all the hosts the HostManager
         knows about. Also, each of the consumable resources in HostState
         are pre-populated and adjusted based on data in the db.
@@ -381,7 +381,7 @@ class HostManager(object):
         Note: this can be very slow with a lot of instances.
         InstanceType table isn't required since a copy is stored
         with the instance (in case the InstanceType changed since the
-        instance was created).  
+        instance was created).
 
         nodes are a list which should be included"""
 
@@ -413,9 +413,9 @@ class HostManager(object):
                 host_node = host
             capabilities = self.service_states.get(host_node, None)
             host_state = self.host_state_cls(host, topic,
-                    capabilities=capabilities,
-                    service=dict(service.iteritems()),
-                    nodename=nodename)
+                    capabilities = capabilities,
+                    service = dict(service.iteritems()),
+                    nodename = nodename)
             host_state.update_from_compute_node(compute)
             host_state_map[host_node] = host_state
 
@@ -426,10 +426,13 @@ class HostManager(object):
         knows about.
         @author Eliot J. Kang <eliot@savinetwork.ca>
         """
-       
+
         LOG.debug(_("Host list before plugin: %s") % nodes)
         LOG.debug(_("metric: %s") % metric)
-        if metric != 'none':
-            hosts = plugin.host_select(nodes, metric)
+        hosts = nodes
+#        if metric != 'none':
+#            hosts = plugin.host_select(nodes, metric)
+#        else:
+#            hosts = nodes
         LOG.debug(_("Host list after plugin: %s") % nodes)
-        return nodes
+        return hosts

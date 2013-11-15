@@ -38,31 +38,31 @@ LOG = logging.getLogger(__name__)
 
 pxe_opts = [
     cfg.BoolOpt('baremetal_use_unsafe_vlan',
-                default=False,
-                help='use baremetal node\'s vconfig for network isolation'),
+                default = False,
+                help = 'use baremetal node\'s vconfig for network isolation'),
     cfg.BoolOpt('baremetal_pxe_vlan_per_host',
-                default=False),
+                default = False),
     cfg.StrOpt('baremetal_pxe_parent_interface',
-               default='eth0'),
+               default = 'eth0'),
     cfg.StrOpt('baremetal_pxelinux_path',
-               default='/usr/lib/syslinux/pxelinux.0',
-               help='path to pxelinux.0'),
+               default = '/usr/lib/syslinux/pxelinux.0',
+               help = 'path to pxelinux.0'),
     cfg.StrOpt('baremetal_dnsmasq_pid_dir',
-               default='/var/lib/nova/baremetal/dnsmasq',
-               help='path to directory stores pidfiles of dnsmasq'),
+               default = '/var/lib/nova/baremetal/dnsmasq',
+               help = 'path to directory stores pidfiles of dnsmasq'),
     cfg.StrOpt('baremetal_dnsmasq_lease_dir',
-               default='/var/lib/nova/baremetal/dnsmasq',
-               help='path to directory stores leasefiles of dnsmasq'),
+               default = '/var/lib/nova/baremetal/dnsmasq',
+               help = 'path to directory stores leasefiles of dnsmasq'),
     cfg.StrOpt('baremetal_deploy_kernel',
-               help='kernel image ID used in deployment phase'),
+               help = 'kernel image ID used in deployment phase'),
     cfg.StrOpt('baremetal_deploy_ramdisk',
-               help='ramdisk image ID used in deployment phase'),
+               help = 'ramdisk image ID used in deployment phase'),
     cfg.BoolOpt('baremetal_pxe_append_iscsi_portal',
-                default=True,
-                help='append "bm_iscsi_porttal=<portal_address>" '
+                default = True,
+                help = 'append "bm_iscsi_porttal=<portal_address>" '
                      'to instances\' /proc/cmdline'),
     cfg.StrOpt('baremetal_pxe_append_params',
-               help='additional append parameters for baremetal pxe'),
+               help = 'additional append parameters for baremetal pxe'),
             ]
 
 FLAGS = flags.FLAGS
@@ -130,7 +130,7 @@ def _start_dnsmasq(interface, tftp_root, client_address, pid_path, lease_path):
              '--tftp-root=%s' % tftp_root,
              '--dhcp-boot=pxelinux.0',
              '--dhcp-range=%s,%s' % (client_address, client_address),
-             run_as_root=True)
+             run_as_root = True)
 
 
 def _cache_image_x(context, target, image_id,
@@ -205,20 +205,20 @@ def _start_per_host_pxe_server(tftp_root, vlan_id,
     utils.execute('ip', 'address',
             'add', server_address + '/24',
             'dev', pxe_interface,
-            run_as_root=True)
+            run_as_root = True)
     utils.execute('ip', 'route', 'add',
             client_address, 'scope', 'host', 'dev', pxe_interface,
-            run_as_root=True)
+            run_as_root = True)
 
     shutil.copyfile(FLAGS.baremetal_pxelinux_path,
                     os.path.join(tftp_root, 'pxelinux.0'))
     utils.ensure_tree(os.path.join(tftp_root, 'pxelinux.cfg'))
 
-    _start_dnsmasq(interface=pxe_interface,
-                   tftp_root=tftp_root,
-                   client_address=client_address,
-                   pid_path=_dnsmasq_pid_path(pxe_interface),
-                   lease_path=_dnsmasq_lease_path(pxe_interface))
+    _start_dnsmasq(interface = pxe_interface,
+                   tftp_root = tftp_root,
+                   client_address = client_address,
+                   pid_path = _dnsmasq_pid_path(pxe_interface),
+                   lease_path = _dnsmasq_lease_path(pxe_interface))
 
 
 def _stop_per_host_pxe_server(tftp_root, vlan_id):
@@ -226,13 +226,13 @@ def _stop_per_host_pxe_server(tftp_root, vlan_id):
 
     dnsmasq_pid = _dnsmasq_pid(pxe_interface)
     if dnsmasq_pid:
-        utils.execute('kill', '-TERM', str(dnsmasq_pid), run_as_root=True)
+        utils.execute('kill', '-TERM', str(dnsmasq_pid), run_as_root = True)
     _unlink_without_raise(_dnsmasq_pid_path(pxe_interface))
     _unlink_without_raise(_dnsmasq_lease_path(pxe_interface))
 
     vlan.ensure_no_vlan(vlan_id, FLAGS.baremetal_pxe_parent_interface)
 
-    shutil.rmtree(os.path.join(tftp_root, 'pxelinux.cfg'), ignore_errors=True)
+    shutil.rmtree(os.path.join(tftp_root, 'pxelinux.cfg'), ignore_errors = True)
 
     from nova.network import linux_net
     chain = 'bm-%s' % pxe_interface
@@ -262,10 +262,27 @@ class PXE(object):
             var['tftp_root'] = FLAGS.baremetal_tftp_root
         var['network_info'] = network_info
         var['block_device_info'] = block_device_info
+        metadata = instance.get('metadata', [])
+        for meta in metadata:
+            st = str(meta.get('key', ''))
+            if st.startswith('eth'):
+                try:
+                    i = int(st.strip('eth'))
+                    var[st] = (i, meta.get('value', ''))
+                except:
+                    pass
+
         return var
 
-    def _inject_to_image(self, context, target, node, inst, network_info,
-                         injected_files=None, admin_password=None):
+    def _get_if_number(self, ifs, netid, ifc_num):
+        for key, val in ifs.iteritems():
+            if val == netid:
+                ifs.pop(key)
+                return key
+        return ifc_num + 1
+
+    def _inject_to_image(self, context, target, node, inst, network_info, ifs,
+                         injected_files = None, admin_password = None):
         # For now, we assume that if we're not using a kernel, we're using a
         # partitioned disk image where the target partition is the first
         # partition
@@ -305,9 +322,10 @@ class PXE(object):
         ifc_num = -1
         have_injected_networks = False
         for (network_ref, mapping) in network_info:
-            ifc_num += 1
+            net_id = network_ref['id']
+            ifc_num = self._get_if_number(ifs, net_id, ifc_num)
             # always inject
-            #if not network_ref['injected']:
+            # if not network_ref['injected']:
             #    continue
             have_injected_networks = True
             address = mapping['ips'][0]['ip']
@@ -324,7 +342,7 @@ class PXE(object):
                     and mapping['should_create_vlan'] \
                     and network_ref.get('vlan'):
                 name = 'eth%d.%d' % (ifc_num, network_ref.get('vlan'))
-            gateway=mapping.get('gateway', None)
+            gateway = mapping.get('gateway', None)
             net_info = {'name': name,
                    'address': address,
                    'netmask': netmask,
@@ -340,7 +358,7 @@ class PXE(object):
         if have_injected_networks:
             _late_load_cheetah()
             net = str(Template(ifc_template,
-                               searchList=[{'interfaces': nets,
+                               searchList = [{'interfaces': nets,
                                             'use_ipv6': FLAGS.use_ipv6}]))
         net += "\n"
         net += "auto %s\n" % bootif_name
@@ -359,22 +377,22 @@ class PXE(object):
                 if locals()[injection]:
                     LOG.info(_('instance %(inst_name)s: injecting '
                                '%(injection)s into image %(img_id)s'),
-                             locals(), instance=inst)
+                             locals(), instance = inst)
             try:
                 disk.inject_data(target,
                                  key, net, metadata, admin_password,
-                                 files=injected_files,
-                                 partition=target_partition,
-                                 use_cow=False)
+                                 files = injected_files,
+                                 partition = target_partition,
+                                 use_cow = False)
 
             except Exception as e:
                 # This could be a windows image, or a vmdk format disk
                 LOG.warn(_('instance %(inst_name)s: ignoring error injecting'
                         ' data into image %(img_id)s (%(e)s)') % locals(),
-                         instance=inst)
+                         instance = inst)
 
     def create_image(self, var, context, image_meta, node, instance,
-                     injected_files=None, admin_password=None):
+                     injected_files = None, admin_password = None):
         image_root = var['image_root']
         network_info = var['network_info']
 
@@ -383,23 +401,32 @@ class PXE(object):
         image_path = os.path.join(image_root, 'disk')
         LOG.debug("fetching image id=%s target=%s", ami_id, image_path)
 
-        _cache_image_x(context=context,
-                       target=image_path,
-                       image_id=ami_id,
-                       user_id=instance['user_id'],
-                       project_id=instance['project_id'])
+        _cache_image_x(context = context,
+                       target = image_path,
+                       image_id = ami_id,
+                       user_id = instance['user_id'],
+                       project_id = instance['project_id'])
+
+        ifs = {}
+        for key, val in var.iteritems():
+            try:
+                if key.startswith('eth'):
+                    (if_num, uuid) = val
+                    ifs[if_num] = uuid
+            except:
+                pass
 
         LOG.debug("injecting to image id=%s target=%s", ami_id, image_path)
         self._inject_to_image(context, image_path, node,
-                              instance, network_info,
-                              injected_files=injected_files,
-                              admin_password=admin_password)
+                              instance, network_info, ifs,
+                              injected_files = injected_files,
+                              admin_password = admin_password)
         var['image_path'] = image_path
         LOG.debug("fetching images all done")
 
     def destroy_images(self, var, context, node, instance):
         image_root = var['image_root']
-        shutil.rmtree(image_root, ignore_errors=True)
+        shutil.rmtree(image_root, ignore_errors = True)
 
     def _pxe_cfg_name(self, node):
         name = "01-" + node['prov_mac_address'].replace(":", "-").lower()
@@ -433,11 +460,11 @@ class PXE(object):
 
         def _cache_image_b(image_id, target):
             LOG.debug("fetching id=%s target=%s", image_id, target)
-            _cache_image_x(context=context,
-                           image_id=image_id,
-                           target=target,
-                           user_id=instance['user_id'],
-                           project_id=instance['project_id'])
+            _cache_image_x(context = context,
+                           image_id = image_id,
+                           target = target,
+                           user_id = instance['user_id'],
+                           project_id = instance['project_id'])
 
         for image, path in zip(images, tftp_paths):
             target = os.path.join(tftp_root, path)
@@ -475,12 +502,12 @@ class PXE(object):
         pxeconf = _build_pxe_config(deployment_id,
                                     deployment_key,
                                     deployment_iscsi_iqn,
-                                    deployment_aki_path=tftp_paths[0],
-                                    deployment_ari_path=tftp_paths[1],
-                                    aki_path=tftp_paths[2],
-                                    ari_path=tftp_paths[3],
-                                    iscsi_portal=iscsi_portal,
-                                    flavor_cpu_arch=flavor_cpu_arch)
+                                    deployment_aki_path = tftp_paths[0],
+                                    deployment_ari_path = tftp_paths[1],
+                                    aki_path = tftp_paths[2],
+                                    ari_path = tftp_paths[3],
+                                    iscsi_portal = iscsi_portal,
+                                    flavor_cpu_arch = flavor_cpu_arch)
         utils.ensure_tree(pxe_config_dir)
         libvirt_utils.write_to_file(pxe_config_path, pxeconf)
 
@@ -500,7 +527,7 @@ class PXE(object):
             tftp_image_dir = tftp_root
         else:
             tftp_image_dir = os.path.join(tftp_root, str(instance['uuid']))
-        shutil.rmtree(tftp_image_dir, ignore_errors=True)
+        shutil.rmtree(tftp_image_dir, ignore_errors = True)
 
         pxe_config_path = os.path.join(tftp_root,
                                        "pxelinux.cfg",

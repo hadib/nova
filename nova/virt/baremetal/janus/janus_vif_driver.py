@@ -16,6 +16,7 @@
 #    under the License.
 
 from webob import exc
+import traceback
 
 from nova import exception
 from nova import flags
@@ -33,8 +34,8 @@ import httplib
 from janus.network.network import JanusNetworkDriver
 
 janus_libvirt_ovs_driver_opt = cfg.StrOpt('libvirt_ovs_janus_api_host',
-                                        default='127.0.0.1:8091',
-                                        help='OpenFlow Janus REST API host:port')
+                                        default = '127.0.0.1:8091',
+                                        help = 'OpenFlow Janus REST API host:port')
 FLAGS.register_opt(janus_libvirt_ovs_driver_opt)
 
 class JanusVIFDriver(vif_driver.BareMetalVIFDriver):
@@ -51,8 +52,12 @@ class JanusVIFDriver(vif_driver.BareMetalVIFDriver):
 
         # Register MAC with network first, then try to register port
         try:
-            self.client.addMAC(network['id'], mapping['mac'])
             self.client.createPort(network['id'], dpid, pif['port_no'])
+            self.client.addMAC(network['id'], mapping['mac'])
+            for ip in mapping['ips']:
+                self.client.ip_mac_mapping(network['id'], dpid,
+                                           mapping['mac'], ip['ip'],
+                                           pif['port_no'])
         except httplib.HTTPException as e:
             res = e.args[0]
             if res.status != httplib.CONFLICT:
@@ -65,9 +70,16 @@ class JanusVIFDriver(vif_driver.BareMetalVIFDriver):
 
         try:
             self.client.deletePort(network['id'], dpid, pif['port_no'])
+        except httplib.HTTPException as e:
+            res = e.args[0]
+            if res.status != httplib.NOT_FOUND:
+                traceback.print_exc()
+                raise
+
+        try:
             self.client.delMAC(network['id'], mapping['mac'])
         except httplib.HTTPException as e:
             res = e.args[0]
             if res.status != httplib.NOT_FOUND:
+                traceback.print_exc()
                 raise
-

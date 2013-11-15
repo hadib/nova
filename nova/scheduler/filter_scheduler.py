@@ -49,7 +49,7 @@ class FilterScheduler(driver.Scheduler):
         # NOTE: We're only focused on compute instances right now,
         # so this method will always raise NoValidHost().
         msg = _("No host selection for %s defined.") % FLAGS.volume_topic
-        raise exception.NoValidHost(reason=msg)
+        raise exception.NoValidHost(reason = msg)
 
     def schedule_run_instance(self, context, request_spec,
                               admin_password, injected_files,
@@ -67,7 +67,7 @@ class FilterScheduler(driver.Scheduler):
         LOG.debug(_("Attempting to build %(num_instances)d instance(s)") %
                 locals())
 
-        payload = dict(request_spec=request_spec)
+        payload = dict(request_spec = request_spec)
         LOG.debug(_("payload is %(payload)s") %
                 locals())
         notifier.notify(context, notifier.publisher_id("scheduler"),
@@ -93,7 +93,7 @@ class FilterScheduler(driver.Scheduler):
                     LOG.debug(_("weighted_host poped is %(weighted_host)s") %
                             locals())
                 except IndexError:
-                    raise exception.NoValidHost(reason="")
+                    raise exception.NoValidHost(reason = "")
 
                 self._provision_resource(elevated, weighted_host,
                                          request_spec,
@@ -101,7 +101,7 @@ class FilterScheduler(driver.Scheduler):
                                          requested_networks,
                                          injected_files, admin_password,
                                          is_first_time,
-                                         instance_uuid=instance_uuid)
+                                         instance_uuid = instance_uuid)
             except Exception as ex:
                 # NOTE(vish): we don't reraise the exception here to make sure
                 #             that all instances in the request get set to
@@ -128,7 +128,7 @@ class FilterScheduler(driver.Scheduler):
         hosts = self._schedule(context, 'compute', request_spec,
                                filter_properties, [instance['uuid']])
         if not hosts:
-            raise exception.NoValidHost(reason="")
+            raise exception.NoValidHost(reason = "")
         host = hosts.pop(0)
 
         # Forward off to the host
@@ -137,7 +137,7 @@ class FilterScheduler(driver.Scheduler):
 
     def _provision_resource(self, context, weighted_host, request_spec,
             filter_properties, requested_networks, injected_files,
-            admin_password, is_first_time, instance_uuid=None):
+            admin_password, is_first_time, instance_uuid = None):
         """Create the requested resource in this Zone."""
         # Add a retry entry for the selected compute host:
         self._add_retry_host(filter_properties, weighted_host.host_state.host)
@@ -145,9 +145,9 @@ class FilterScheduler(driver.Scheduler):
         self._add_oversubscription_policy(filter_properties,
                 weighted_host.host_state)
 
-        payload = dict(request_spec=request_spec,
-                       weighted_host=weighted_host.to_dict(),
-                       instance_id=instance_uuid)
+        payload = dict(request_spec = request_spec,
+                       weighted_host = weighted_host.to_dict(),
+                       instance_id = instance_uuid)
         notifier.notify(context, notifier.publisher_id("scheduler"),
                         'scheduler.run_instance.scheduled', notifier.INFO,
                         payload)
@@ -161,16 +161,16 @@ class FilterScheduler(driver.Scheduler):
 
         updated_instance = driver.instance_update_db(context,
                 instance_uuid, weighted_host.host_state.host,
-                system_metadata=smd_dic)
+                system_metadata = smd_dic)
         # Ensure system_metadata is loaded and included in rpc payload
         updated_instance.get('system_metadata')
 
-        self.compute_rpcapi.run_instance(context, instance=updated_instance,
-                host=weighted_host.host_state.host,
-                request_spec=request_spec, filter_properties=filter_properties,
-                requested_networks=requested_networks,
-                injected_files=injected_files,
-                admin_password=admin_password, is_first_time=is_first_time)
+        self.compute_rpcapi.run_instance(context, instance = updated_instance,
+                host = weighted_host.host_state.host,
+                request_spec = request_spec, filter_properties = filter_properties,
+                requested_networks = requested_networks,
+                injected_files = injected_files,
+                admin_password = admin_password, is_first_time = is_first_time)
 
     def _add_retry_host(self, filter_properties, host):
         """Add a retry entry for the selected compute host.  In the event that
@@ -232,10 +232,10 @@ class FilterScheduler(driver.Scheduler):
             instance_uuid = instance_properties.get('uuid')
             msg = _("Exceeded max scheduling attempts %(max_attempts)d for "
                     "instance %(instance_uuid)s") % locals()
-            raise exception.NoValidHost(reason=msg)
+            raise exception.NoValidHost(reason = msg)
 
     def _schedule(self, context, topic, request_spec, filter_properties,
-                  instance_uuids=None):
+                  instance_uuids = None):
         """Returns a list of hosts that meet the required specs,
         ordered by their fitness.
         """
@@ -281,6 +281,20 @@ class FilterScheduler(driver.Scheduler):
         # are being scanned in a filter or weighing function.
         hosts = unfiltered_hosts_dict.itervalues()
 
+        # -------------------------------------------------------------------------------
+        # @author Eliot J. Kang <eliot@savinetwork.ca>
+        # Get hosts based on plugins
+        # plugined_hosts = ['node']
+        _scheduler_hints = filter_properties.get('scheduler_hints', [])
+        sch_metric = 'none'
+        if _scheduler_hints:
+            sch_metric = _scheduler_hints.get('sch_metric', [])
+            LOG.debug(_("sch_metric: %s") % sch_metric)
+            hosts = self.host_manager.get_plugined_nodes(hosts, janus_plugin.JanusPlugin(), sch_metric)
+        else:
+            LOG.debug(_("No specified filter for janus scheduling"))
+        # -------------------------------------------------------------------------------
+
         selected_hosts = []
         if instance_uuids:
             num_instances = len(instance_uuids)
@@ -312,25 +326,10 @@ class FilterScheduler(driver.Scheduler):
             weighted_host.host_state.consume_from_instance(
                     instance_properties)
 
-        # -------------------------------------------------------------------------------
-        # @author Eliot J. Kang <eliot@savinetwork.ca>
-        # Get hosts based on plugins
-        # plugined_hosts = ['node']
-        _scheduler_hints = filter_properties.get('scheduler_hints', [])
-        sch_metric='none'
-        if _scheduler_hints:
-            sch_metric = _scheduler_hints.get('sch_metric', [])
-            LOG.debug(_("sch_metric: %s") % sch_metric)
-            selected_hosts = self.host_manager.get_plugined_nodes(selected_hosts, janus_plugin.JanusPlugin(), sch_metric)
-        else:
-            LOG.debug(_("No specified filter for janus scheduling"))
-        # -------------------------------------------------------------------------------
- 
- 
-        selected_hosts.sort(key=operator.attrgetter('weight'))
+        selected_hosts.sort(key = operator.attrgetter('weight'))
         return selected_hosts
 
-    def get_cost_functions(self, topic=None):
+    def get_cost_functions(self, topic = None):
         """Returns a list of tuples containing weights and cost functions to
         use for weighing hosts
         """
@@ -359,14 +358,14 @@ class FilterScheduler(driver.Scheduler):
                 cost_fn = importutils.import_class(cost_fn_str)
             except ImportError:
                 raise exception.SchedulerCostFunctionNotFound(
-                        cost_fn_str=cost_fn_str)
+                        cost_fn_str = cost_fn_str)
 
             try:
                 flag_name = "%s_weight" % cost_fn.__name__
                 weight = getattr(FLAGS, flag_name)
             except AttributeError:
                 raise exception.SchedulerWeightFlagNotFound(
-                        flag_name=flag_name)
+                        flag_name = flag_name)
             cost_fns.append((weight, cost_fn))
 
         self.cost_function_cache[topic] = cost_fns
