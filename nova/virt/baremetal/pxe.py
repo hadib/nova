@@ -482,6 +482,10 @@ class PXE(object):
         if swap_mb < 1024:
             swap_mb = 1024
 
+        node_local_mb = int(node.get('local_gb', 0)) * 1024
+        if root_mb < (node_local_mb - swap_mb):
+            root_mb = node_local_mb - swap_mb
+
         pxe_ip = None
         if FLAGS.baremetal_pxe_vlan_per_host:
             pxe_ip_id = bmdb.bm_pxe_ip_associate(context, node['id'])
